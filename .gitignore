@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Training and generated artifacts
+checkpoints/
+artifacts/
+resource_profile.json
+*.pth
+*.onnx
+*.tflite
+
+# Deployment output
+stm32_project/
+stm32_project_test/
+
+# OS/editor
+.vscode/
+.DS_Store
+Thumbs.db

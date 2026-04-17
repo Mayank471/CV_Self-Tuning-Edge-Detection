@@ -1,0 +1,8 @@
+torch
+torchvision
+numpy
+onnx
+onnxruntime
+tensorflow
+onnx-tf
+pyserial

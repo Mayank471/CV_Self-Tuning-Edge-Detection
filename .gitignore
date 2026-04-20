@@ -43,3 +43,6 @@ results/logs/
 # Local dataset and processed data artifacts
 data/raw/
 data/processed/
+
+# Large local archives
+compare_methods.zip

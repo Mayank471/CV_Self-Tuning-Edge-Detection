@@ -1,24 +1,45 @@
-# Python
+# Python bytecode/cache
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-.venv/
-venv/
+*$py.class
 
-# Training and generated artifacts
-checkpoints/
-artifacts/
-resource_profile.json
-*.pth
-*.onnx
-*.tflite
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
 
-# Deployment output
-stm32_project/
-stm32_project_test/
+# Test / lint / type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
-# OS/editor
+# Notebook / editor / OS noise
+.ipynb_checkpoints/
 .vscode/
+.idea/
+*.swp
+*.swo
 .DS_Store
 Thumbs.db
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Local environment files
+.env
+.env.*
+
+# Project-generated artifacts
+models/*.pkl
+results/visualizations/
+results/logs/
+
+# Local dataset and processed data artifacts
+data/raw/
+data/processed/

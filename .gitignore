@@ -35,14 +35,24 @@ ENV/
 .env
 .env.*
 
-# Project-generated artifacts
-models/*.pkl
-results/visualizations/
-results/logs/
-
-# Local dataset and processed data artifacts
+# Project data artifacts (do not upload datasets)
 data/raw/
 data/processed/
 
-# Large local archives
-compare_methods.zip
+# Model artifacts
+models/
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.npy
+*.npz
+
+# Generated results and logs
+results/
+*.log
+
+# Local archives/reports
+*.zip
+G52_report.pdf

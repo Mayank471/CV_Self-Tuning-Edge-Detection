@@ -46,7 +46,7 @@ def save_image(image: np.ndarray, path: Union[str, Path]) -> None:
 
 
 def to_grayscale(image: np.ndarray) -> np.ndarray:
-    """Convert image to grayscale if needed."""
+    """Convert image to grayscale."""
     if len(image.shape) == 3:
         return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return image
@@ -57,7 +57,7 @@ def normalize_image(image: np.ndarray) -> np.ndarray:
     img_min, img_max = image.min(), image.max()
     if img_max - img_min > 0:
         return ((image - img_min) / (img_max - img_min) * 255).astype(np.uint8)
-    return image.astype(np.uint8)
+    return image.astype(np.uint8)  # Already normalized
 
 
 def visualize_comparison(
@@ -109,14 +109,12 @@ def visualize_comparison(
     
     col_idx = 3
     
-    # Otsu edges
     if edges_otsu is not None:
         axes[col_idx].imshow(edges_otsu, cmap='gray')
         axes[col_idx].set_title('Otsu Method')
         axes[col_idx].axis('off')
         col_idx += 1
     
-    # Ground truth
     if ground_truth is not None:
         axes[col_idx].imshow(ground_truth, cmap='gray')
         axes[col_idx].set_title('Ground Truth')

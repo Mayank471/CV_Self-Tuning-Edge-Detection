@@ -4,12 +4,6 @@ Adaptive Canny Edge Detector Module.
 Implements a self-tuning edge detector that automatically selects
 optimal thresholds based on image quality features.
 
-Fixes applied:
-  1. find_optimal_thresholds: added L2gradient=True so training labels are
-     computed with the same gradient norm as inference.
-  2. FixedThresholdDetector.detect: added L2gradient=True for a fair
-     apples-to-apples comparison with the adaptive method.
-  3. OtsuThresholdDetector.detect: same fix as above.
 """
 
 import cv2
@@ -103,10 +97,6 @@ class AdaptiveCannyDetector:
 class FixedThresholdDetector:
     """
     Standard Canny detector with fixed thresholds for baseline comparison.
-
-    Fix: L2gradient=True is now used to match the adaptive detector and the
-    training-label generation routine so all methods operate on the same
-    gradient norm.
     """
 
     def __init__(self, low_threshold: int = 50, high_threshold: int = 150):
@@ -116,8 +106,6 @@ class FixedThresholdDetector:
     def detect(self, image: np.ndarray) -> EdgeDetectionResult:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
         blurred = cv2.GaussianBlur(gray, (5, 5), 1.4)
-        # FIX: was cv2.Canny(blurred, ...) with default L2gradient=False.
-        # Now matches AdaptiveCannyDetector for a fair comparison.
         edges = cv2.Canny(blurred, self.low_threshold, self.high_threshold,
                           L2gradient=True)
         return EdgeDetectionResult(
@@ -132,11 +120,7 @@ class FixedThresholdDetector:
 class OtsuThresholdDetector:
     """
     Canny detector using a sigma-median heuristic for automatic threshold selection.
-
-    Note: despite the class name, this uses the median-sigma rule, not Otsu's
-    method on the gradient magnitude. Rename to SigmaMedianDetector if desired.
-
-    Fix: L2gradient=True added for consistency with AdaptiveCannyDetector.
+    Uses median-sigma rule, not Otsu's method on gradient magnitude.
     """
 
     def __init__(self, sigma: float = 0.33):
@@ -149,7 +133,6 @@ class OtsuThresholdDetector:
         high_threshold = int(min(255, (1.0 + self.sigma) * median))
 
         blurred = cv2.GaussianBlur(gray, (5, 5), 1.4)
-        # FIX: was cv2.Canny(blurred, ...) with default L2gradient=False.
         edges = cv2.Canny(blurred, low_threshold, high_threshold, L2gradient=True)
 
         return EdgeDetectionResult(
@@ -170,14 +153,8 @@ def find_optimal_thresholds(
 ) -> Tuple[int, int, float]:
     """
     Find optimal Canny thresholds via grid search.
-
-    Used for generating training labels by finding the threshold pair that
-    maximises F1 against the ground truth.
-
-    Fix: L2gradient=True is now passed to cv2.Canny so the training labels are
-    generated under exactly the same gradient-norm assumption used at inference
-    time.  The previous default (L2gradient=False) caused a systematic shift
-    in the threshold distribution that degraded prediction quality.
+    Generates training labels by finding the threshold pair that maximises F1
+    against ground truth (uses L2gradient=True for consistency with inference).
 
     Args:
         image: Input image (BGR or grayscale).
@@ -197,8 +174,6 @@ def find_optimal_thresholds(
 
     for low in range(low_range[0], low_range[1] + 1, step):
         for high in range(max(high_range[0], low + 10), high_range[1] + 1, step):
-            # FIX: was cv2.Canny(blurred, low, high) — default L2gradient=False.
-            # Must match AdaptiveCannyDetector.detect() which uses L2gradient=True.
             edges = cv2.Canny(blurred, low, high, L2gradient=True)
             edges_binary = (edges > 0).astype(np.uint8)
 

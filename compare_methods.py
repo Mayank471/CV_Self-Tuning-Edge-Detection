@@ -38,36 +38,25 @@ from src.utils import (
 from train import resolve_bsds_paths, load_ground_truth, find_gt_for_image
 
 
-# ---------------------------------------------------------------------------
-# Shared helpers
-# ---------------------------------------------------------------------------
-
 def _to_gray(image: np.ndarray) -> np.ndarray:
     """Convert BGR to grayscale if needed; return unchanged if already gray."""
     return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
 
 
 def _binarize(edges: np.ndarray) -> np.ndarray:
-    """Map any nonzero value to 255, zero stays zero."""
+    """Convert edges to binary (0 or 255)."""
     return (edges > 0).astype(np.uint8) * 255
 
 
 def _otsu_thresholds(gray: np.ndarray) -> tuple:
-    """
-    Derive Canny high/low thresholds from Otsu's global threshold.
-    The commonly used heuristic is:  low = 0.5 * T_otsu, high = T_otsu.
-    """
+    """Derive Canny thresholds from Otsu's method (low=0.5*T, high=T)."""
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     t_otsu, _ = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return 0.5 * t_otsu, t_otsu
 
 
-# ---------------------------------------------------------------------------
-# Original classical detectors (unchanged)
-# ---------------------------------------------------------------------------
-
 def detect_sobel(image: np.ndarray) -> np.ndarray:
-    """Sobel gradient magnitude, thresholded with Otsu."""
+    """Sobel gradient magnitude with Otsu threshold."""
     gray = _to_gray(image)
     gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
     gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
@@ -78,7 +67,7 @@ def detect_sobel(image: np.ndarray) -> np.ndarray:
 
 
 def detect_scharr(image: np.ndarray) -> np.ndarray:
-    """Scharr gradient magnitude, thresholded with Otsu."""
+    """Scharr gradient magnitude with Otsu threshold."""
     gray = _to_gray(image)
     gx = cv2.Scharr(gray, cv2.CV_64F, 1, 0)
     gy = cv2.Scharr(gray, cv2.CV_64F, 0, 1)
@@ -89,7 +78,7 @@ def detect_scharr(image: np.ndarray) -> np.ndarray:
 
 
 def detect_log(image: np.ndarray) -> np.ndarray:
-    """Laplacian-of-Gaussian (LoG): Gaussian blur then Laplacian, Otsu binarised."""
+    """Laplacian-of-Gaussian with Otsu threshold."""
     gray = _to_gray(image)
     blur = cv2.GaussianBlur(gray, (5, 5), 1.0)
     lap = cv2.Laplacian(blur, cv2.CV_64F)
@@ -100,7 +89,7 @@ def detect_log(image: np.ndarray) -> np.ndarray:
 
 
 def detect_laplacian(image: np.ndarray) -> np.ndarray:
-    """Raw Laplacian on the gray image, Otsu binarised."""
+    """Laplacian with Otsu threshold."""
     gray = _to_gray(image)
     lap = cv2.Laplacian(gray, cv2.CV_64F)
     abs_lap = np.abs(lap)
@@ -110,7 +99,7 @@ def detect_laplacian(image: np.ndarray) -> np.ndarray:
 
 
 def detect_morph_gradient(image: np.ndarray) -> np.ndarray:
-    """Morphological gradient (dilation − erosion), Otsu binarised."""
+    """Morphological gradient with Otsu threshold."""
     gray = _to_gray(image)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
     grad = cv2.morphologyEx(gray, cv2.MORPH_GRADIENT, kernel)
@@ -128,10 +117,6 @@ def detect_skimage_canny(image: np.ndarray) -> np.ndarray:
     return edges.astype(np.uint8) * 255
 
 
-# ---------------------------------------------------------------------------
-# Detector registry
-# ---------------------------------------------------------------------------
-
 def make_detectors(model_path: Path) -> Dict:
     """
     Build and return the full dictionary of named detector callables.
@@ -144,7 +129,6 @@ def make_detectors(model_path: Path) -> Dict:
     otsu     = OtsuThresholdDetector()
 
     detectors = {
-        # ---- original methods ------------------------------------------------
         "adaptive_canny"           : lambda im: adaptive.detect(im).edges,
         "fixed_canny_50_150"       : lambda im: fixed.detect(im).edges,
         "otsu_canny"               : lambda im: otsu.detect(im).edges,
@@ -162,20 +146,16 @@ def make_detectors(model_path: Path) -> Dict:
     return detectors
 
 
-# ---------------------------------------------------------------------------
-# Evaluation helpers (unchanged)
-# ---------------------------------------------------------------------------
-
 def evaluate_method(
     evaluator: EdgeEvaluator,
     detector_fn,
     image: np.ndarray,
     gt: np.ndarray,
 ) -> Dict:
-    """Run detector, measure wall time, compute metrics against GT."""
-    t0    = time.perf_counter()
+    """Run detector, measure wall time, compute metrics against ground truth."""
+    t0 = time.perf_counter()
     edges = detector_fn(image)
-    dt    = (time.perf_counter() - t0) * 1000.0   # ms
+    dt = (time.perf_counter() - t0) * 1000.0
 
     metrics               = evaluator.evaluate(_binarize(edges), gt).to_dict()
     metrics["runtime_ms"] = dt
@@ -184,16 +164,7 @@ def evaluate_method(
 
 
 def robustness_variants(image: np.ndarray) -> Dict[str, np.ndarray]:
-    """
-    Return a dict of degraded variants of `image` for robustness testing.
-
-    Variants:
-      gaussian_noise    : additive Gaussian noise, sigma=25
-      salt_pepper_noise : salt-and-pepper noise, density=25 (per 1000 pixels)
-      blurred           : strong Gaussian blur, kernel=9
-      bright            : contrast stretch + brightness +30
-      dark              : contrast shrink + brightness -30
-    """
+    """Generate degraded image variants for robustness testing."""
     return {
         "original"          : image,
         "gaussian_noise"    : create_noisy_image(image, "gaussian", 25),
@@ -205,14 +176,10 @@ def robustness_variants(image: np.ndarray) -> Dict[str, np.ndarray]:
 
 
 def summarize_values(values: List[float]) -> Dict[str, float]:
-    """Return mean and std of a list of floats."""
+    """Calculate mean and std of float values."""
     arr = np.array(values, dtype=float)
     return {"mean": float(arr.mean()), "std": float(arr.std())}
 
-
-# ---------------------------------------------------------------------------
-# Main benchmark loop
-# ---------------------------------------------------------------------------
 
 def run_benchmark(
     images_root : Path,
@@ -222,10 +189,8 @@ def run_benchmark(
     max_samples : Optional[int],
 ) -> Dict:
     """
-    Iterate over images in `split`, run every detector, collect metrics.
-
-    Returns a nested dict:
-      { method_name: { metric_name: {"mean": float, "std": float}, ... } }
+    Iterate over images, run every detector, collect metrics per method.
+    Returns metrics aggregated as mean±std per method.
     """
     evaluator = EdgeEvaluator(tolerance=2)
     detectors = make_detectors(model_path)
@@ -234,7 +199,6 @@ def run_benchmark(
     if max_samples is not None:
         image_paths = image_paths[:max_samples]
 
-    # Accumulate per-image metric lists for each method
     per_method = {
         name: {
             "precision"           : [],
@@ -254,7 +218,7 @@ def run_benchmark(
         if gt_path is None:
             continue
         image = load_image(img_path)
-        gt    = load_ground_truth(gt_path)
+        gt = load_ground_truth(gt_path)
         if gt is None:
             continue
         if gt.shape[:2] != image.shape[:2]:
@@ -263,17 +227,15 @@ def run_benchmark(
                 interpolation=cv2.INTER_NEAREST,
             )
 
-        variants     = robustness_variants(image)
+        variants = robustness_variants(image)
         sample_count += 1
 
         for name, fn in detectors.items():
-            # --- baseline metrics on clean image ---
             base = evaluate_method(evaluator, fn, variants["original"], gt)
             for k in ("precision", "recall", "f1_score", "accuracy",
                       "runtime_ms", "edge_density"):
                 per_method[name][k].append(base[k])
 
-            # --- robustness: mean F1 across degraded variants ---
             robustness_f1 = []
             for vname, vimg in variants.items():
                 if vname == "original":
@@ -286,7 +248,6 @@ def run_benchmark(
     if sample_count == 0:
         raise RuntimeError(f"No valid samples found in split '{split}'.")
 
-    # Summarise into mean ± std per metric per method
     summary = {}
     for name, vals in per_method.items():
         summary[name] = {
@@ -297,10 +258,6 @@ def run_benchmark(
 
     return summary
 
-
-# ---------------------------------------------------------------------------
-# Formatting
-# ---------------------------------------------------------------------------
 
 def format_table(summary: Dict[str, Dict]) -> str:
     """Render a plain-text summary table for console output."""
@@ -395,10 +352,6 @@ def save_method_comparisons(
 
     return saved
 
-
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(
